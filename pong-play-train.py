@@ -3,16 +3,17 @@
 import gym
 import numpy as np
 import cPickle as pickle
+import matplotlib.pyplot as plt
 
 env = gym.make('Pong-v0')
 np.random.seed(10)
 
-input_dim = 100 # 80 * 80
+input_dim = 200 # 80 * 80
 hl_size = 50
 version = 3
 npop = 50
 sigma = 0.1
-alpha = 0.01
+alpha = 0.003
 aver_reward = None
 aver_pop = None
 aver_loss = None
@@ -21,7 +22,11 @@ reload = True
 
 print hl_size, version, npop, sigma, alpha
 
-nn = pickle.load(open('encoder-weights-playing.p', 'rb'))
+# nn = {}
+# param_size = 200
+# nn['W1'] = np.random.randn(6400, param_size) / np.sqrt(6400)
+# nn['W2'] = np.random.randn(param_size, 6400) / np.sqrt(param_size)
+nn = pickle.load(open('encoder-weights-playing200.p', 'rb'))
 if reload:
     print 'loading weights from', 'model-pong%d.p' % version
     model = pickle.load(open('model-pong%d.p' % version, 'rb'))
@@ -55,7 +60,7 @@ def get_action(x, model):
 
 def convert(x):
     hl1 = np.matmul(x, nn['W1'])
-    hl1 = sigmoid(hl1)
+    hl1 = np.tanh(hl1)
 
     return hl1
 
@@ -65,12 +70,15 @@ def f(model, render=False, images_save=False):
     global images
     state = env.reset()
     total_reward = 0
+    prev_x = None
     for t in xrange(1000000):
         if render: env.render()
 
         cur_x = prepro(state)
-        if images_save: images.append(cur_x)
-        x = convert(cur_x)
+        x = cur_x - prev_x if prev_x is not None else np.zeros_like(cur_x)
+        prev_x = cur_x
+        if images_save: images.append(x)
+        x = convert(x)
 
         action = get_action(x, model)
         state, reward, done, info = env.step(action)
@@ -85,17 +93,21 @@ nn_grad_sq = {}
 for k, v in nn.iteritems(): nn_grad[k] = np.zeros_like(v)
 for k, v in nn.iteritems(): nn_grad_sq[k] = np.zeros_like(v)
 
-def train_nn(nn, inputs, labels, lr=0.00001):
+def train_nn(nn, inputs, labels, lr=0.001):
     # inputs, labels - np.array | bsize * 6400
     hl1 = np.matmul(inputs, nn['W1'])
-    hl1 = sigmoid(hl1)
+    hl1 = np.tanh(hl1)
     hl2 = np.matmul(hl1, nn['W2'])
-    hl2 = sigmoid(hl2)
+    hl2 = np.tanh(hl2)
+
+    # index_to_show = np.random.randint(len(hl2))
+    # plt.imshow(hl2[index_to_show].reshape(80, 80), cmap='gray')
+    # plt.show()
 
     dhl2 = (hl2 - labels) / len(inputs)
-    dhl2 *= hl2*(1 - hl2)
+    dhl2 *= (1 - hl2*hl2)
     dhl1 = np.matmul(dhl2, nn['W2'].transpose())
-    dhl1 *= hl1*(1 - hl1)
+    dhl1 *= (1 - hl1*hl1)
 
     d = {}
     d['W2'] = np.matmul(hl1.transpose(), dhl2)
@@ -108,18 +120,18 @@ def train_nn(nn, inputs, labels, lr=0.00001):
     return np.mean(np.square(hl2 - labels))
 
 for i in xrange(100001):
-    N = {}
-    for k, v in model.iteritems(): N[k] = np.random.randn(npop, v.shape[0], v.shape[1])
-    R = np.zeros(npop)
-    for j in range(npop):
-        model_try = {}
-        for k, v in model.iteritems(): model_try[k] = v + sigma*N[k][j]
-        R[j] = f(model_try)
-    A = (R - np.mean(R)) / (np.std(R) + 1e-5)
-    for k in model: model[k] = model[k] + alpha/(npop*sigma) * np.dot(N[k].transpose(1, 2, 0), A)
-    if i % 10 == 0 and allow_writing:
+    # N = {}
+    # for k, v in model.iteritems(): N[k] = np.random.randn(npop, v.shape[0], v.shape[1])
+    # R = np.zeros(npop)
+    # for j in range(npop):
+    #     model_try = {}
+    #     for k, v in model.iteritems(): model_try[k] = v + sigma*N[k][j]
+    #     R[j] = f(model_try)
+    # A = (R - np.mean(R)) / (np.std(R) + 1e-5)
+    # for k in model: model[k] = model[k] + alpha/(npop*sigma) * np.dot(N[k].transpose(1, 2, 0), A)
+    if i % 20 == 0 and allow_writing:
         pickle.dump(model, open('model-pong%d.p' % version, 'wb'))
-        pickle.dump(nn, open('encoder-weights-playing.p', 'wb'))
+        pickle.dump(nn, open('encoder-weights-playing200.p', 'wb'))
     images = []
     cur_reward = f(model, images_save=True)
     np_images = np.array(images)
@@ -128,9 +140,9 @@ for i in xrange(100001):
     aver_loss = aver_loss * 0.9 + cur_loss * 0.1 if aver_loss is not None else cur_loss
     print 'iter %d, cur_loss %f, aver_loss %f,' % (i, cur_loss, aver_loss)
 
-    mean_pop = np.mean(R)
+    mean_pop = 0 #np.mean(R)
     aver_reward = aver_reward * 0.9 + cur_reward * 0.1 if aver_reward != None else cur_reward
     aver_pop = aver_pop * 0.9 + mean_pop * 0.1 if aver_pop != None else mean_pop
-    print('iter %d, mean_pop %.2f, aver_pop %.2f, cur_reward %.2f, aver_reward %.2f' % (i, mean_pop, aver_pop, cur_reward, aver_reward))
+    # print('iter %d, mean_pop %.2f, aver_pop %.2f, cur_reward %.2f, aver_reward %.2f' % (i, mean_pop, aver_pop, cur_reward, aver_reward))
 
 

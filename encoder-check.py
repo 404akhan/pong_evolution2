@@ -72,13 +72,13 @@ def f(model, render=False):
             break
     return total_reward
 
-nn = pickle.load(open('encoder-weights-2.p', 'rb'))
+nn = pickle.load(open('encoder-weights-playing200.p', 'rb'))
 
 def nn_forward(nn, inputs):
     hl1 = np.matmul(inputs, nn['W1'])
-    hl1 = sigmoid(hl1)
+    hl1 = np.tanh(hl1)
     hl2 = np.matmul(hl1, nn['W2'])
-    hl2 = sigmoid(hl2)
+    hl2 = np.tanh(hl2)
 
     return hl2
 
