@@ -93,7 +93,7 @@ nn_grad_sq = {}
 for k, v in nn.iteritems(): nn_grad[k] = np.zeros_like(v)
 for k, v in nn.iteritems(): nn_grad_sq[k] = np.zeros_like(v)
 
-def train_nn(nn, inputs, labels, lr=0.001):
+def train_nn(nn, inputs, labels, lr=0.0001):
     # inputs, labels - np.array | bsize * 6400
     hl1 = np.matmul(inputs, nn['W1'])
     hl1 = np.tanh(hl1)
