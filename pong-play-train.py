@@ -3,17 +3,16 @@
 import gym
 import numpy as np
 import cPickle as pickle
-import matplotlib.pyplot as plt
 
 env = gym.make('Pong-v0')
 np.random.seed(10)
 
 input_dim = 200 # 80 * 80
-hl_size = 50
+hl_size = 100
 version = 10
 npop = 50
 sigma = 0.1
-alpha = 0.003
+alpha = 0.01
 aver_reward = None
 aver_pop = None
 aver_loss = None
@@ -86,7 +85,7 @@ nn_grad_sq = {}
 for k, v in nn.iteritems(): nn_grad[k] = np.zeros_like(v)
 for k, v in nn.iteritems(): nn_grad_sq[k] = np.zeros_like(v)
 
-def train_nn(nn, inputs, labels, lr=0.00001):
+def train_nn(nn, inputs, labels, lr=0.00003):
     # inputs, labels - np.array | bsize * 6400
     hl1 = np.matmul(inputs, nn['W1'])
     hl1 = np.tanh(hl1)
